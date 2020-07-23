@@ -1,0 +1,16 @@
+
+*.class
+
+*.log
+
+
+*.jar
+*.war
+*.zip
+*.tar.gz
+*.rar
+.idea/
+*.iml
+*/target
+*/.iml
+
