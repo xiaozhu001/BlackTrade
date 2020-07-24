@@ -117,9 +117,10 @@ contract BlackTradeContract {
 	struct TradeInfo {
 		uint256 number;
 		uint256 surplusNumber;
-		uint256 rate;
+		uint256 rate; // 1fc 兑换0.2000个usdt rate = 2000
 		uint256 nextIndex;
 		uint256 preIndex;
+		bool isExist;
 	}
 	TradeInfo[] tradeInfoList;
 
@@ -127,10 +128,16 @@ contract BlackTradeContract {
 
 	TradeInfo fc2usdtHeader;
 
-	// type 1fc2usdt 2usdt2fc, amount 是待兑换金额，rate 是兑换比例 1个fc兑换0.1000个usdt rate = 1000
+	// type 1fc2usdt 2usdt2fc, amount 是待兑换金额，
+	// rate 是兑换比例 1个fc兑换0.1000个usdt rate = 1000
+	// 1fc 兑换0.2000个usdt rate = 2000
+	// 1usdt 兑换 10fc rate = 1000
+	// 1usdt 兑换 5fc rate = 2000  1/5 * 10000
 	function trade(uint256 type, uint256 number, uint256 rate) public {
 		if (type == 1) {
-			TradeInfo tradeInfo = TradeInfo(number, number, rate, 1, 1);
+			if (fc2usdtHeader.isExist) {
+				rate < fc2usdtHeader.rate
+			}
 		} else if (type == 2) {
 
 		} else {
