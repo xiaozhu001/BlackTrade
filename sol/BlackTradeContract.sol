@@ -1,44 +1,47 @@
 pragma solidity ^0.6.0;
 
 interface Token {
-    function transfer(address to, uint256 value) external returns (bool);
-    function balanceOf(address who) external view returns (uint256);
+	function transfer(address to, uint256 value) external returns (bool);
+	function balanceOf(address who) external view returns (uint256);
 }
 
 contract BlackTradeContract {
+	// 0x9d28E66342dF0347034A963F7104fb06fb72ac9d
+	// 0xdbbAc99122787019aCa15eAf15e615EfFE2189a9
+	// 0x8ca6b992d773c16d6633353d598d15f824e66de2
 	mapping(address => uint256) fcAccountBalanceMap;
 	mapping(address => uint256) usdtAccountBalanceMap;
 
 	mapping(address => uint256) fcAccountLockBalanceMap;
 	mapping(address => uint256) usdtAccountLockBalanceMap;
 
-    Token fcToken;
-    Token usdtToken;
+	Token fcToken;
+	Token usdtToken;
 
-    // admin
-    address admin;
+	// admin
+	address admin;
 
-    // 空投记录
+	// 空投记录
 	mapping (string => bool) airdropRecord;
 
 	// 导出用户数据
-    mapping (address => bool) _accountCheck;
-    address[] _accountList;
-    
-    modifier onlyAdmin() {
-    	require(admin == msg.sender, "only admin");
-    	_;
-    }
-    
-    constructor(Token _fcToken, Token _usdtToken) public {
-    	admin = msg.sender;
-    	fcToken = _fcToken;
-    	usdtToken = _usdtToken;
-    }
+	mapping (address => bool) _accountCheck;
+	address[] _accountList;
 
-    // 获取资产信息
+	modifier onlyAdmin() {
+		require(admin == msg.sender, "only admin");
+		_;
+	}
+
+	constructor(Token _fcToken, Token _usdtToken) public {
+		admin = msg.sender;
+		fcToken = _fcToken;
+		usdtToken = _usdtToken;
+	}
+
+	// 获取资产信息
 	function balanceOf(address account) public view returns (
-		uint256 fcAccountBalance, 
+		uint256 fcAccountBalance,
 		uint256 usdtAccountBalance,
 		uint256 fcAccountLockBalance,
 		uint256 usdtAccountLockBalance) {
@@ -64,17 +67,18 @@ contract BlackTradeContract {
 			require(false, "tradeType is fail");
 		}
 
-        if (!_accountCheck[account]) {
-            _accountCheck[account] = true;
-            _accountList.push(account);
-        }
+		if (!_accountCheck[account]) {
+			_accountCheck[account] = true;
+			_accountList.push(account);
+		}
 
 	}
 
 	// 空投资产
-    function airdrop(uint256 tradeType, address toAccount, uint256 amount, string memory transactionHash) public onlyAdmin {
+	function airdrop(uint256 tradeType, address toAccount, uint256 amount, string memory transactionHash) public onlyAdmin {
 		require (!airdropRecord[transactionHash], "airdrop record is exist");
-		
+		airdropRecord[transactionHash] = true;
+
 		if (tradeType == 1) {
 			fcAccountBalanceMap[toAccount] = fcAccountBalanceMap[toAccount] + amount;
 		} else if (tradeType == 2) {
@@ -90,29 +94,29 @@ contract BlackTradeContract {
 	}
 
 	// 全部移出到admin
-	function transferAdmin() public {
+	function transferAdmin() public onlyAdmin {
 		uint fcAmount = fcToken.balanceOf(address(this));
 		fcToken.transfer(admin, fcAmount);
 
 		uint usdtAmount = usdtToken.balanceOf(address(this));
 		usdtToken.transfer(admin, usdtAmount);
 	}
-	
-	// 导出所有用户地址
-    function accountList(uint256 begin, uint256 size) public view returns (address[] memory) {
-        require(begin >= 0 && begin < _accountList.length, "accountList out of range");
-        address[] memory res = new address[](size);
-        uint256 range = _accountList.length < begin + size ? _accountList.length : begin + size;
-        for (uint256 i = begin; i < range; i++) {
-            res[i-begin] = _accountList[i];
-        }
-        return res;
-    }
 
-    // 获取用户总数
-    function accountTotal() public view returns (uint256) {
-        return _accountList.length;
-    }
+	// 导出所有用户地址
+	function accountList(uint256 begin, uint256 size) public view returns (address[] memory) {
+		require(begin >= 0 && begin < _accountList.length, "accountList out of range");
+		address[] memory res = new address[](size);
+		uint256 range = _accountList.length < begin + size ? _accountList.length : begin + size;
+		for (uint256 i = begin; i < range; i++) {
+			res[i-begin] = _accountList[i];
+		}
+		return res;
+	}
+
+	// 获取用户总数
+	function accountTotal() public view returns (uint256) {
+		return _accountList.length;
+	}
 
 	struct TradeNode {
 		address account;
@@ -130,68 +134,147 @@ contract BlackTradeContract {
 
 	mapping(address => uint256) accountTradeMap;
 
-	mapping (uint256 => uint256) headerMap;
-	
+	uint256 fc2usdtHeader;
+	uint256 usdt2fcHeader;
 
-	// tradeType 1fc2usdt 2usdt2fc, amount 是待兑换金额，
+	// amount 是待兑换金额，
 	// rate 是兑换比例 1个fc兑换0.1000个usdt rate = 1000
-	function trade(uint256 tradeType, uint256 number, uint256 rate) public {
-	    require(tradeType == 1 || tradeType == 2, "tradeType is fail");
-		TradeNode memory tradeNode = TradeNode(msg.sender, number, tradeType, 0, number, rate, 0, 0, tradeNodeList.length + 1, true);
+	function fc2usdt(uint256 number, uint256 rate) public {
+		TradeNode memory tradeNode = TradeNode(msg.sender, number, 1, 0, number, rate, 0, 0, tradeNodeList.length + 1, true);
 		tradeNodeList.push(tradeNode);
 
-		if (tradeType == 1) {
-			TradeNode memory tempNode = tradeNodeList[headerMap[2]];
-			if (!tempNode.isExist) {
-        		_addNode(tradeNode, tradeType);
-			} else {
+		if (usdt2fcHeader == 0 || !tradeNodeList[usdt2fcHeader - 1].isExist || tradeNodeList[usdt2fcHeader - 1].rate < rate) {
+			_addFc2usdtNode(tradeNode.currentIndex);
+			return;
+		}
+		_fc2usdtChange(tradeNode.currentIndex);
+	}
 
+	function usdt2fc(uint256 number, uint256 rate) public {
+
+		TradeNode memory tradeNode = TradeNode(msg.sender, number, 2, 0, number, rate, 0, 0, tradeNodeList.length + 1, true);
+		tradeNodeList.push(tradeNode);
+
+		if (fc2usdtHeader == 0 || !tradeNodeList[fc2usdtHeader - 1].isExist || tradeNodeList[fc2usdtHeader - 1].rate > rate) {
+			_addUsdt2fcNode(tradeNode.currentIndex);
+			return;
+		}
+	}
+
+	function _fc2usdtChange(uint256 currentIndex) internal {
+
+		TradeNode storage temp = tradeNodeList[usdt2fcHeader - 1];
+		TradeNode storage node = tradeNodeList[currentIndex - 1];
+
+		// for (;;) {
+		//     if () {
+
+		//     }
+		// }
+	}
+
+	function _addFc2usdtNode(uint256 currentIndex) internal {
+		if (fc2usdtHeader == 0) {
+			fc2usdtHeader = 1;
+			return;
+		}
+
+		TradeNode storage temp = tradeNodeList[fc2usdtHeader - 1];
+		TradeNode storage node = tradeNodeList[currentIndex - 1];
+		if (temp.rate < node.rate) {
+			node.nextIndex = temp.currentIndex;
+			temp.preIndex = node.currentIndex;
+			fc2usdtHeader = node.currentIndex;
+			return;
+		}
+		while (true) {
+			if (temp.rate < node.rate) {
+				node.nextIndex = temp.currentIndex;
+				TradeNode storage node1 = tradeNodeList[temp.preIndex - 1];
+				node1.nextIndex = node.currentIndex;
+				node.preIndex = temp.preIndex;
+				temp.preIndex = node.currentIndex;
+				break;
 			}
-		} else if (tradeType == 2) {
-			TradeNode memory tempNode = tradeNodeList[headerMap[1]];
-			if (!tempNode.isExist) {
-        		_addNode(tradeNode, tradeType);
-			} else {
 
+			if (temp.nextIndex == 0) {
+				node.nextIndex = temp.nextIndex;
+				node.preIndex = temp.currentIndex;
+				temp.nextIndex = node.currentIndex;
+				break;
+			} else {
+				temp = tradeNodeList[temp.nextIndex - 1];
 			}
 		}
 	}
 
-	function _addNode(TradeNode memory node, uint256 tradeType) internal {
-		
-        if (tradeNodeList.length == 1) {
-            headerMap[tradeType] = 1;
-            return;
-        }
+	function _addUsdt2fcNode(uint256 currentIndex) internal {
+		if (usdt2fcHeader == 0) {
+			usdt2fcHeader = 1;
+			return;
+		}
 
-        TradeNode storage temp = tradeNodeList[headerMap[tradeType] - 1];
-        if (temp.rate < node.rate) {
-            node.nextIndex = temp.currentIndex;
-            temp.preIndex = node.currentIndex;
-            headerMap[tradeType] = node.currentIndex;
-            return;
-        }
-        while (true) {
-            if (temp.rate < node.rate) {
-                node.nextIndex = temp.currentIndex;
-                node.preIndex = temp.preIndex;
-                temp.preIndex = node.currentIndex;
-                break;
-            } else {
-                if (temp.nextIndex == 0) {
-                    node.nextIndex = temp.nextIndex;
-                    node.preIndex = temp.currentIndex;
-                    temp.nextIndex = node.currentIndex;
-                    break;
-                } else {
-                    temp = tradeNodeList[temp.nextIndex - 1];
-                }
-            }
-        }
+		TradeNode storage temp = tradeNodeList[usdt2fcHeader - 1];
+		TradeNode storage node = tradeNodeList[currentIndex - 1];
+		if (temp.rate > node.rate) {
+			node.nextIndex = temp.currentIndex;
+			temp.preIndex = node.currentIndex;
+			usdt2fcHeader = node.currentIndex;
+			return;
+		}
+		while (true) {
+			if (temp.rate > node.rate) {
+				node.nextIndex = temp.currentIndex;
+				TradeNode storage node1 = tradeNodeList[temp.preIndex - 1];
+				node1.nextIndex = node.currentIndex;
+				node.preIndex = temp.preIndex;
+				temp.preIndex = node.currentIndex;
+				break;
+			}
+
+			if (temp.nextIndex == 0) {
+				node.nextIndex = temp.nextIndex;
+				node.preIndex = temp.currentIndex;
+				temp.nextIndex = node.currentIndex;
+				break;
+			} else {
+				temp = tradeNodeList[temp.nextIndex - 1];
+			}
+		}
 	}
-	
-	
 
-    
+
+	function getFc2usdt() public view returns(uint[10] memory){
+		uint[10] memory temp;
+		if (fc2usdtHeader == 0) {
+			return temp;
+		}
+		TradeNode memory tempNode = tradeNodeList[fc2usdtHeader - 1];
+		temp[0] = tempNode.rate;
+		for (uint i = 1;tempNode.nextIndex != 0 && i <= 9; i ++) {
+			tempNode = tradeNodeList[tempNode.nextIndex - 1];
+			temp[i] = tempNode.rate;
+		}
+
+		return temp;
+	}
+
+	function getUsdt2fc() public view returns(uint[10] memory){
+		uint[10] memory temp;
+		if (usdt2fcHeader == 0) {
+			return temp;
+		}
+		TradeNode memory tempNode = tradeNodeList[usdt2fcHeader - 1];
+		temp[0] = tempNode.rate;
+		for (uint i = 1;tempNode.nextIndex != 0 && i <= 9; i ++) {
+			tempNode = tradeNodeList[tempNode.nextIndex - 1];
+			temp[i] = tempNode.rate;
+		}
+
+		return temp;
+	}
+
+
+
 
 }
