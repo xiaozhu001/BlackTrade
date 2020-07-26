@@ -159,6 +159,7 @@ contract BlackTradeContract {
 			_addUsdt2fcNode(tradeNode.currentIndex);
 			return;
 		}
+		_usdt2fcChange(tradeNode.currentIndex);
 	}
 
 	function _fc2usdtChange(uint256 currentIndex) internal {
@@ -166,16 +167,86 @@ contract BlackTradeContract {
 		TradeNode storage temp = tradeNodeList[usdt2fcHeader - 1];
 		TradeNode storage node = tradeNodeList[currentIndex - 1];
 
-		// for (;;) {
-		//     if () {
+		for (;;) {
+			uint usdtNum = temp.rate * node.number / 10000;
+			if (temp.surplusNumber > usdtNum) {
+				temp.surplusNumber = temp.surplusNumber - usdtNum;
+				temp.status = 1;
 
-		//     }
-		// }
+				node.status = 2;
+				node.surplusNumber = 0;
+				break;
+			} else if (temp.surplusNumber < usdtNum) {
+				temp.surplusNumber = 0;
+				temp.status = 2;
+				usdt2fcHeader = temp.nextIndex;
+				temp.nextIndex = 0;
+
+				uint256 fcNum = temp.surplusNumber * 10000 / temp.rate;
+				node.surplusNumber = node.surplusNumber - fcNum;
+				_addFc2usdtNode(currentIndex);
+				// 没有usdt2fc的单子直接返回
+				if (usdt2fcHeader == 0) {
+					break;
+				}
+				temp = tradeNodeList[usdt2fcHeader - 1];
+			} else {
+				temp.surplusNumber = 0;
+				temp.status = 2;
+				usdt2fcHeader = temp.nextIndex;
+				temp.nextIndex = 0;
+
+				node.status = 2;
+				node.surplusNumber = 0;
+				break;
+			}
+		}
+	}
+
+	function _usdt2fcChange(uint256 currentIndex) internal {
+
+		TradeNode storage temp = tradeNodeList[fc2usdtHeader - 1];
+		TradeNode storage node = tradeNodeList[currentIndex - 1];
+
+		for (;;) {
+			uint fcNum = node.number * 10000 / temp.rate;
+			if (temp.surplusNumber > fcNum) {
+				temp.surplusNumber = temp.surplusNumber - fcNum;
+				temp.status = 1;
+
+				node.status = 2;
+				node.surplusNumber = 0;
+				break;
+			} else if (temp.surplusNumber < fcNum) {
+				temp.surplusNumber = 0;
+				temp.status = 2;
+				fc2usdtHeader = temp.nextIndex;
+				temp.nextIndex = 0;
+
+				uint256 usdtNum = temp.surplusNumber * temp.rate / 10000;
+				node.surplusNumber = node.surplusNumber - usdtNum;
+				_addUsdt2fcNode(currentIndex);
+				// 没有usdt2fc的单子直接返回
+				if (fc2usdtHeader == 0) {
+					break;
+				}
+				temp = tradeNodeList[fc2usdtHeader - 1];
+			} else {
+				temp.surplusNumber = 0;
+				temp.status = 2;
+				fc2usdtHeader = temp.nextIndex;
+				temp.nextIndex = 0;
+
+				node.status = 2;
+				node.surplusNumber = 0;
+				break;
+			}
+		}
 	}
 
 	function _addFc2usdtNode(uint256 currentIndex) internal {
 		if (fc2usdtHeader == 0) {
-			fc2usdtHeader = 1;
+			fc2usdtHeader = currentIndex;
 			return;
 		}
 
@@ -210,7 +281,7 @@ contract BlackTradeContract {
 
 	function _addUsdt2fcNode(uint256 currentIndex) internal {
 		if (usdt2fcHeader == 0) {
-			usdt2fcHeader = 1;
+			usdt2fcHeader = currentIndex;
 			return;
 		}
 
@@ -242,7 +313,6 @@ contract BlackTradeContract {
 			}
 		}
 	}
-
 
 	function getFc2usdt() public view returns(uint[10] memory){
 		uint[10] memory temp;

@@ -49,6 +49,15 @@ public class Main {
                 break;
             }
 
+            if (temp.value * temp.num > node.value * node.num) {
+
+            } else if (temp.value * temp.num < node.value * node.num) {
+
+            } else {
+
+            }
+
+
 
         }
     }
