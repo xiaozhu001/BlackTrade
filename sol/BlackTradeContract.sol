@@ -6,9 +6,6 @@ interface Token {
 }
 
 contract BlackTradeContract {
-	// 0x9d28E66342dF0347034A963F7104fb06fb72ac9d
-	// 0xdbbAc99122787019aCa15eAf15e615EfFE2189a9
-	// 0x8ca6b992d773c16d6633353d598d15f824e66de2
 	mapping(address => uint256) fcAccountBalanceMap;
 	mapping(address => uint256) usdtAccountBalanceMap;
 
@@ -28,6 +25,30 @@ contract BlackTradeContract {
 	mapping (address => bool) _accountCheck;
 	address[] _accountList;
 
+
+	// 兑换节点
+	struct TradeNode {
+		address account;
+		uint256 number;
+		uint256 tradeType;
+		uint256 status; // 0未成交，1部分成交，2全部成交，3已撤销
+		uint256 surplusNumber;
+		uint256 rate; // 1fc 兑换0.2000个usdt rate = 2000
+		uint256 nextIndex; // INDEX + 1
+		uint256 preIndex; // INDEX + 1
+		uint256 currentIndex;
+		bool isExist;
+	}
+
+	// 节点列表
+	TradeNode[] tradeNodeList;
+
+	// 个人交易记录
+	mapping(address => uint256[]) accountChangeListMap;
+
+	uint256 fc2usdtHeader;
+	uint256 usdt2fcHeader;
+
 	modifier onlyAdmin() {
 		require(admin == msg.sender, "only admin");
 		_;
@@ -38,6 +59,8 @@ contract BlackTradeContract {
 		fcToken = _fcToken;
 		usdtToken = _usdtToken;
 	}
+
+	// ------------------- 资产相关 ------------------------
 
 	// 获取资产信息
 	function balanceOf(address account) public view returns (
@@ -118,30 +141,19 @@ contract BlackTradeContract {
 		return _accountList.length;
 	}
 
-	struct TradeNode {
-		address account;
-		uint256 number;
-		uint256 tradeType;
-		uint256 status; // 0未成交，1部分成交，2全部成交，3已撤销
-		uint256 surplusNumber;
-		uint256 rate; // 1fc 兑换0.2000个usdt rate = 2000
-		uint256 nextIndex; // INDEX + 1
-		uint256 preIndex; // INDEX + 1
-		uint256 currentIndex;
-		bool isExist;
-	}
-	TradeNode[] tradeNodeList;
 
-	mapping(address => uint256) accountTradeMap;
-
-	uint256 fc2usdtHeader;
-	uint256 usdt2fcHeader;
-
-	// amount 是待兑换金额，
-	// rate 是兑换比例 1个fc兑换0.1000个usdt rate = 1000
+	// ---------------------------- 交易相关---------------
 	function fc2usdt(uint256 number, uint256 rate) public {
+		require(fcAccountBalanceMap[msg.sender] >= number, "number is fail");
+		require(rate >= 1, "rate is fail");
+		accountChangeListMap[msg.sender];
+
 		TradeNode memory tradeNode = TradeNode(msg.sender, number, 1, 0, number, rate, 0, 0, tradeNodeList.length + 1, true);
+		accountChangeListMap[msg.sender].push(tradeNodeList.length + 1);
 		tradeNodeList.push(tradeNode);
+
+		fcAccountBalanceMap[msg.sender] = fcAccountBalanceMap[msg.sender] - number;
+		fcAccountLockBalanceMap[msg.sender] = fcAccountLockBalanceMap[msg.sender] + number;
 
 		if (usdt2fcHeader == 0 || !tradeNodeList[usdt2fcHeader - 1].isExist || tradeNodeList[usdt2fcHeader - 1].rate < rate) {
 			_addFc2usdtNode(tradeNode.currentIndex);
@@ -151,9 +163,15 @@ contract BlackTradeContract {
 	}
 
 	function usdt2fc(uint256 number, uint256 rate) public {
+		require(usdtAccountBalanceMap[msg.sender] >= number, "number is fail");
+		require(rate >= 1, "rate is fail");
 
 		TradeNode memory tradeNode = TradeNode(msg.sender, number, 2, 0, number, rate, 0, 0, tradeNodeList.length + 1, true);
+		accountChangeListMap[msg.sender].push(tradeNodeList.length + 1);
 		tradeNodeList.push(tradeNode);
+
+		usdtAccountBalanceMap[msg.sender] = usdtAccountBalanceMap[msg.sender] - number;
+		usdtAccountLockBalanceMap[msg.sender] = usdtAccountLockBalanceMap[msg.sender] + number;
 
 		if (fc2usdtHeader == 0 || !tradeNodeList[fc2usdtHeader - 1].isExist || tradeNodeList[fc2usdtHeader - 1].rate > rate) {
 			_addUsdt2fcNode(tradeNode.currentIndex);
@@ -170,19 +188,32 @@ contract BlackTradeContract {
 		for (;;) {
 			uint usdtNum = temp.rate * node.number / 10000;
 			if (temp.surplusNumber > usdtNum) {
+				fcAccountLockBalanceMap[node.account] = fcAccountLockBalanceMap[node.account] - node.surplusNumber;
+				usdtAccountBalanceMap[node.account] = usdtAccountBalanceMap[node.account] + usdtNum;
+
+				fcAccountBalanceMap[temp.account] = fcAccountBalanceMap[temp.account] + node.surplusNumber;
+				usdtAccountLockBalanceMap[temp.account] = usdtAccountLockBalanceMap[temp.account] - usdtNum;
+
 				temp.surplusNumber = temp.surplusNumber - usdtNum;
 				temp.status = 1;
-
 				node.status = 2;
 				node.surplusNumber = 0;
 				break;
 			} else if (temp.surplusNumber < usdtNum) {
+
+				uint256 fcNum = temp.surplusNumber * 10000 / temp.rate;
+				fcAccountLockBalanceMap[node.account] = fcAccountLockBalanceMap[node.account] - fcNum;
+				usdtAccountBalanceMap[node.account] = usdtAccountBalanceMap[node.account] + temp.surplusNumber;
+
+				fcAccountBalanceMap[temp.account] = fcAccountBalanceMap[temp.account] + fcNum;
+				usdtAccountLockBalanceMap[temp.account] = usdtAccountLockBalanceMap[temp.account] - temp.surplusNumber;
+
 				temp.surplusNumber = 0;
 				temp.status = 2;
 				usdt2fcHeader = temp.nextIndex;
 				temp.nextIndex = 0;
 
-				uint256 fcNum = temp.surplusNumber * 10000 / temp.rate;
+				node.status = 1;
 				node.surplusNumber = node.surplusNumber - fcNum;
 				_addFc2usdtNode(currentIndex);
 				// 没有usdt2fc的单子直接返回
@@ -191,6 +222,12 @@ contract BlackTradeContract {
 				}
 				temp = tradeNodeList[usdt2fcHeader - 1];
 			} else {
+				fcAccountLockBalanceMap[node.account] = fcAccountLockBalanceMap[node.account] - node.surplusNumber;
+				usdtAccountBalanceMap[node.account] = usdtAccountBalanceMap[node.account] + usdtNum;
+
+				fcAccountBalanceMap[temp.account] = fcAccountBalanceMap[temp.account] + node.surplusNumber;
+				usdtAccountLockBalanceMap[temp.account] = usdtAccountLockBalanceMap[temp.account] - usdtNum;
+
 				temp.surplusNumber = 0;
 				temp.status = 2;
 				usdt2fcHeader = temp.nextIndex;
@@ -211,6 +248,13 @@ contract BlackTradeContract {
 		for (;;) {
 			uint fcNum = node.number * 10000 / temp.rate;
 			if (temp.surplusNumber > fcNum) {
+				usdtAccountLockBalanceMap[node.account] = usdtAccountLockBalanceMap[node.account] - node.surplusNumber;
+				fcAccountBalanceMap[node.account] = fcAccountBalanceMap[node.account] + fcNum;
+
+				usdtAccountBalanceMap[temp.account] = usdtAccountBalanceMap[temp.account] + node.surplusNumber;
+				fcAccountLockBalanceMap[temp.account] = fcAccountLockBalanceMap[temp.account] - fcNum;
+
+
 				temp.surplusNumber = temp.surplusNumber - fcNum;
 				temp.status = 1;
 
@@ -218,12 +262,21 @@ contract BlackTradeContract {
 				node.surplusNumber = 0;
 				break;
 			} else if (temp.surplusNumber < fcNum) {
+				uint256 usdtNum = temp.surplusNumber * temp.rate / 10000;
+
+				usdtAccountLockBalanceMap[node.account] = usdtAccountLockBalanceMap[node.account] - usdtNum;
+				fcAccountBalanceMap[node.account] = fcAccountBalanceMap[node.account] + temp.surplusNumber;
+
+				usdtAccountBalanceMap[temp.account] = usdtAccountBalanceMap[temp.account] + usdtNum;
+				fcAccountLockBalanceMap[temp.account] = fcAccountLockBalanceMap[temp.account] - temp.surplusNumber;
+
+
 				temp.surplusNumber = 0;
 				temp.status = 2;
 				fc2usdtHeader = temp.nextIndex;
 				temp.nextIndex = 0;
 
-				uint256 usdtNum = temp.surplusNumber * temp.rate / 10000;
+				node.status = 1;
 				node.surplusNumber = node.surplusNumber - usdtNum;
 				_addUsdt2fcNode(currentIndex);
 				// 没有usdt2fc的单子直接返回
@@ -232,6 +285,12 @@ contract BlackTradeContract {
 				}
 				temp = tradeNodeList[fc2usdtHeader - 1];
 			} else {
+				usdtAccountLockBalanceMap[node.account] = usdtAccountLockBalanceMap[node.account] - node.surplusNumber;
+				fcAccountBalanceMap[node.account] = fcAccountBalanceMap[node.account] + fcNum;
+
+				usdtAccountBalanceMap[temp.account] = usdtAccountBalanceMap[temp.account] + node.surplusNumber;
+				fcAccountLockBalanceMap[temp.account] = fcAccountLockBalanceMap[temp.account] - fcNum;
+
 				temp.surplusNumber = 0;
 				temp.status = 2;
 				fc2usdtHeader = temp.nextIndex;
@@ -314,37 +373,86 @@ contract BlackTradeContract {
 		}
 	}
 
-	function getFc2usdt() public view returns(uint[10] memory){
-		uint[10] memory temp;
+	function getFc2usdt() public view returns(uint[10] memory, uint[10] memory){
+		uint[10] memory tempRate;
+		uint[10] memory tempNum;
 		if (fc2usdtHeader == 0) {
-			return temp;
+			return (tempRate, tempNum);
 		}
 		TradeNode memory tempNode = tradeNodeList[fc2usdtHeader - 1];
-		temp[0] = tempNode.rate;
+		tempRate[0] = tempNode.rate;
+		tempNum[0] = tempNode.surplusNumber;
 		for (uint i = 1;tempNode.nextIndex != 0 && i <= 9; i ++) {
 			tempNode = tradeNodeList[tempNode.nextIndex - 1];
-			temp[i] = tempNode.rate;
+			tempRate[i] = tempNode.rate;
+			tempNum[i] = tempNode.surplusNumber;
 		}
 
-		return temp;
+		return (tempRate, tempNum);
 	}
 
-	function getUsdt2fc() public view returns(uint[10] memory){
-		uint[10] memory temp;
+	function getUsdt2fc() public view returns(uint[10] memory, uint[10] memory){
+		uint[10] memory tempRate;
+		uint[10] memory tempNum;
 		if (usdt2fcHeader == 0) {
-			return temp;
+			return (tempRate, tempNum);
 		}
 		TradeNode memory tempNode = tradeNodeList[usdt2fcHeader - 1];
-		temp[0] = tempNode.rate;
+		tempRate[0] = tempNode.rate;
+		tempNum[0] = tempNode.surplusNumber;
 		for (uint i = 1;tempNode.nextIndex != 0 && i <= 9; i ++) {
 			tempNode = tradeNodeList[tempNode.nextIndex - 1];
-			temp[i] = tempNode.rate;
+			tempRate[i] = tempNode.rate;
+			tempNum[i] = tempNode.surplusNumber;
 		}
 
-		return temp;
+		return (tempRate, tempNum);
+	}
+
+	function cancelChange(uint256 index) public {
+		require(index >= 1, "index is fail");
+		TradeNode storage tempNode = tradeNodeList[index - 1];
+		require(msg.sender == tempNode.account, "index is fail");
+		require(tempNode.status == 0 || tempNode.status == 1, "index is fail");
+
+		if (tempNode.tradeType == 1) {
+			fcAccountLockBalanceMap[msg.sender] = fcAccountLockBalanceMap[msg.sender] - tempNode.surplusNumber;
+			fcAccountBalanceMap[msg.sender] = fcAccountBalanceMap[msg.sender] + tempNode.surplusNumber;
+		} else {
+			usdtAccountLockBalanceMap[msg.sender] = usdtAccountLockBalanceMap[msg.sender] - tempNode.surplusNumber;
+			usdtAccountBalanceMap[msg.sender] = usdtAccountBalanceMap[msg.sender] + tempNode.surplusNumber;
+		}
+		tempNode.status = 3;
 	}
 
 
+	function getAccountChangeCounts(address account) public view returns(uint256) {
+		return accountChangeListMap[account].length;
+	}
+
+	function getAccountChangeCounts(address account, uint256 begin, uint256 size) public view returns(uint256[] memory) {
+		require(begin >= 0 && begin < accountChangeListMap[account].length, "accountList out of range");
+		uint256[] memory res = new uint256[](size);
+		uint256 range = accountChangeListMap[account].length < begin + size ? accountChangeListMap[account].length : begin + size;
+		for (uint256 i = begin; i < range; i++) {
+			res[i-begin] = accountChangeListMap[account][i];
+		}
+		return res;
+	}
+
+	function getTradeNode(uint256 index) public view returns(uint256 number,
+		uint256 tradeType,
+		uint256 status,
+		uint256 surplusNumber,
+		uint256 rate) {
+
+		TradeNode memory tempNode = tradeNodeList[index - 1];
+		number = tempNode.number;
+		tradeType = tempNode.tradeType;
+		status = tempNode.status;
+		surplusNumber = tempNode.surplusNumber;
+		rate = tempNode.rate;
+	}
 
 
 }
