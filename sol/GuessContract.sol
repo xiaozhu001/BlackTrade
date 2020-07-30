@@ -91,6 +91,8 @@ contract GuessContract is IERC777Recipient {
     mapping (address => bool) _accountCheck;
     address[] _accountList;
 
+    uint _status;
+
     constructor() public {
         _erc1820.setInterfaceImplementer(address(this), keccak256(abi.encodePacked("IERC777Recipient")), address(this));
         _owner = msg.sender;
@@ -98,14 +100,7 @@ contract GuessContract is IERC777Recipient {
     }
 
     // 收款时被回调
-    function tokensReceived (
-        address operator,
-        address from,
-        address to,
-        uint amount,
-        bytes calldata userData,
-        bytes calldata operatorData
-    ) external override {
+    function tokensReceived (address operator, address from, address to, uint amount, bytes calldata userData, bytes calldata operatorData ) external override {
         require(msg.sender == _erc777Address, "only 0xBB2Ae7947c0dD606Db2371cD21B2093975387451");
         givers[from] += amount;
 
@@ -117,7 +112,9 @@ contract GuessContract is IERC777Recipient {
 
     // 转移所有资金
     function withdraw () external {
+
         require(msg.sender == _owner, "only owner");
+        require(_status == 1, "only owner");
 
         for (uint i = 0; i < _accountList.length; i ++) {
             address account = _accountList[i];
@@ -135,5 +132,35 @@ contract GuessContract is IERC777Recipient {
         givers[msg.sender] -= amount;
         _token.send(msg.sender, amount, "");
     }
+
+    // status 0 开启， 1 关闭， 2 开始下注
+    function setStatus(uint status) public {
+        require(msg.sender == _owner, "only owner");
+        require(status == 0 || status == 1, "status fail");
+        require(_status != 2, "status fail");
+
+        if (status != _status) {
+            return;
+        }
+        _status = status;
+    }
+
+    // 开奖 1 单， 2 双
+    function open(uint num) public {
+        require(msg.sender == _owner, "only owner");
+        require(num == 2 || num == 1, "num fail");
+        require(_status == 2, "status fail");
+
+        if (num == 1) {
+
+        } else {
+
+        }
+        _status = 0;
+    }
+
+
+
+
 
 }
