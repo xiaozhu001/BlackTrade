@@ -1,0 +1,99 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_command",
+        "type": "string"
+      },
+      {
+        "internalType": "uint8",
+        "name": "num",
+        "type": "uint8"
+      },
+      {
+        "internalType": "contract Token",
+        "name": "_token",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "getInfo",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "_command",
+        "type": "string"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_totalNum",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_remnantNum",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_owner",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_accountList",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_status",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_command",
+        "type": "string"
+      }
+    ],
+    "name": "robWelfare",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "send",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
