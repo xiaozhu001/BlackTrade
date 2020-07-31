@@ -61,3 +61,4 @@ FC钱包地址
 > 0x87010faf5964d67ed070bc4b8dcafa1e1adc0997
 
 引入FCToken.abi.json文件，即可调用。
+原型： https://www.processon.com/view/link/5f20d85be401fd181ae06e6d
