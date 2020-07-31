@@ -7,20 +7,20 @@ interface Token {
 
 contract CommandWelfareContract {
     string command;
-    uint8 public totalNum;
-    uint8 public remnantNum;
-    uint256 public amount;
+    mapping(string => bool) commandMap;
+
+    uint8 totalNum;
+    uint8 remnantNum;
 
     address owner;
     // 0 已创建，1可领取，2已撤回
-    uint8 public status;
+    uint8 status;
 
-    Token token = Token(0x0);
+    Token token = Token(0x03ad989c5A3135E21D445ba601c356ee28AdE540);
 
     // 领奖记录
-    mapping(address => uint) public robWelfareMap;
-    mapping(string => bool) commandMap;
-    address[] public accountList;
+    mapping(address => uint) robWelfareMap;
+    address[] accountList;
 
     constructor(string memory _command, uint8 num) public {
         owner = msg.sender;
@@ -34,8 +34,8 @@ contract CommandWelfareContract {
         require(msg.sender == owner, "only owner");
         require(status == 0, "status is not 0");
 
-        amount = token.balanceOf(address(this));
-        require(amount == 0, "balance is 0");
+        uint amount = token.balanceOf(address(this));
+        require(amount != 0, "balance is 0");
         require(amount >= totalNum, "amount is fail");
 
         status = 1;
@@ -50,15 +50,17 @@ contract CommandWelfareContract {
 
     function robWelfare(string memory _command) public {
         require(commandMap[_command], "command is fail");
-        require(status == 2, "status is not 2");
+        require(status == 1, "status is not 1");
         require(remnantNum > 0, "the quota is full");
         require(robWelfareMap[msg.sender] == 0, "not more than once");
 
+        uint amount = token.balanceOf(address(this));
+
         uint tempAmount = amount / remnantNum;
+
         robWelfareMap[msg.sender] = tempAmount;
         token.transfer(msg.sender, tempAmount);
         accountList.push(msg.sender);
-
         remnantNum --;
     }
 
@@ -72,10 +74,13 @@ contract CommandWelfareContract {
         uint8 _status) {
 
         string memory tempCommand;
-        if (robWelfareMap[msg.sender] != 0 || account == owner) {
+        if (robWelfareMap[msg.sender] != 0
+            || account == owner
+            || robWelfareMap[account] != 0 ) {
             tempCommand = command;
         }
 
+        uint amount = token.balanceOf(address(this));
         return (tempCommand, totalNum, remnantNum, amount, owner, accountList, status);
     }
 }
@@ -88,6 +93,7 @@ contract Test {
 	    require(accountMap[msg.sender] >= value);
 
         accountMap[to] += value;
+        accountMap[msg.sender] -= value;
 	}
 
 	function balanceOf(address who) external view returns (uint256) {
