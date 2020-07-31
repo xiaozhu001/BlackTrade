@@ -65,13 +65,12 @@ contract CommandWelfareContract {
         remnantNum --;
     }
 
-    function getInfo(address account) public view returns(
+    function getWelfareInfo(address account) public view returns(
         string memory _command,
         uint8 _totalNum,
         uint8 _remnantNum,
         uint256 _amount,
         address _owner,
-        address[] memory _accountList,
         uint8 _status) {
 
         string memory tempCommand;
@@ -82,7 +81,11 @@ contract CommandWelfareContract {
         }
 
         uint amount = token.balanceOf(address(this));
-        return (tempCommand, totalNum, remnantNum, amount, owner, accountList, status);
+        return (tempCommand, totalNum, remnantNum, amount, owner, status);
+    }
+
+    function getAccountList() public view returns(address[] memory) {
+        return accountList;
     }
 }
 

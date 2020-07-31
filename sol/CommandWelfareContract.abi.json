@@ -21,6 +21,19 @@
     "type": "constructor"
   },
   {
+    "inputs": [],
+    "name": "getAccountList",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -28,7 +41,7 @@
         "type": "address"
       }
     ],
-    "name": "getInfo",
+    "name": "getWelfareInfo",
     "outputs": [
       {
         "internalType": "string",
@@ -54,11 +67,6 @@
         "internalType": "address",
         "name": "_owner",
         "type": "address"
-      },
-      {
-        "internalType": "address[]",
-        "name": "_accountList",
-        "type": "address[]"
       },
       {
         "internalType": "uint8",
