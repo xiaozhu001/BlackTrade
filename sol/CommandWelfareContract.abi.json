@@ -64,11 +64,6 @@
         "type": "uint256"
       },
       {
-        "internalType": "address",
-        "name": "_owner",
-        "type": "address"
-      },
-      {
         "internalType": "uint8",
         "name": "_status",
         "type": "uint8"
