@@ -16,18 +16,19 @@ contract CommandWelfareContract {
     // 0 已创建，1可领取，2已撤回
     uint8 status;
 
-    Token token = Token(0x03ad989c5A3135E21D445ba601c356ee28AdE540);
+    Token token;
 
     // 领奖记录
     mapping(address => uint) robWelfareMap;
     address[] accountList;
 
-    constructor(string memory _command, uint8 num) public {
+    constructor(string memory _command, uint8 num, Token _token) public {
         owner = msg.sender;
         command = _command;
         commandMap[_command] = true;
         totalNum = num;
         remnantNum = num;
+        token = _token;
     }
 
     function send() public {
