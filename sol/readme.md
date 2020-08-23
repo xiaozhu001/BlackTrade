@@ -17,7 +17,7 @@ function send() public
 #### 3、撤销红包
 可以在任意时间调用该接口，该接口可以将红包直接变为撤销状态，并可以将里面的所有未发出去的金额退回来。
 ~~~
-function withdraw() public
+function haiyoushui() public
 ~~~
 
 #### 4、领取红包
