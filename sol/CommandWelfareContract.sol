@@ -41,11 +41,12 @@ contract CommandWelfareContract {
     }
 
     // 撤销红包
-    function withdraw() public {
+    function haiyoushui() public {
         require(msg.sender == owner, "only owner");
 
+        uint amount = token.balanceOf(address(this));
+        token.transfer(msg.sender, amount);
         status = 2;
-        token.transfer(owner, token.balanceOf(address(this)));
     }
 
     // 领取红包
